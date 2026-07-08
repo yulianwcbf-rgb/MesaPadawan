@@ -1,0 +1,17 @@
+{
+  "name": "TeamMember",
+  "type": "object",
+  "properties": {
+    "name": {
+      "type": "string",
+      "description": "Nome do assessor"
+    },
+    "photo_url": {
+      "type": "string",
+      "description": "URL da foto do assessor"
+    }
+  },
+  "required": [
+    "name"
+  ]
+}
