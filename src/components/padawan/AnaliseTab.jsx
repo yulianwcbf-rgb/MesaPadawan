@@ -220,13 +220,28 @@ export default function AnaliseTab({ refreshKey }) {
   return (
     <div className="space-y-8">
       {/* Member selector + photo */}
-      <div className="flex items-center gap-4 flex-wrap">
-        <MemberAvatar member={selectedMember} size={52} />
-        <div className="flex flex-col gap-1">
-          <span className="font-mono text-xs text-[#8FA897]">Assessor:</span>
-          <select value={selected} onChange={e => setSelected(e.target.value)} className="field-input max-w-[260px]">
-            {team.map(m => <option key={m.id} value={m.name}>{m.name}</option>)}
-          </select>
+      <div className="flex items-center gap-5 flex-wrap">
+        <MemberAvatar member={selectedMember} size={112} />
+        <div className="flex flex-col gap-2">
+          <h2 className="font-heading text-2xl font-bold text-[#F3F6F1]">{selected}</h2>
+          <p className="font-mono text-sm text-[#A8E063]">
+            Patrimônio líquido: <span className="font-semibold">{fmtBRL(totals.patrimonio)}</span>
+          </p>
+          <div className="flex gap-2 flex-wrap mt-1">
+            {team.map(m => (
+              <button
+                key={m.id}
+                onClick={() => setSelected(m.name)}
+                className={`font-mono text-xs px-3 py-1.5 rounded-full border transition-colors ${
+                  selected === m.name
+                    ? 'bg-[#A8E063] border-[#A8E063] text-[#0B1F14] font-semibold'
+                    : 'border-[#224030] text-[#8FA897] hover:text-[#F3F6F1] hover:border-[#3A5C46]'
+                }`}
+              >
+                {m.name}
+              </button>
+            ))}
+          </div>
         </div>
       </div>
 
