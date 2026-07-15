@@ -39,8 +39,9 @@ export default function LancamentoTab({ onSaved }) {
 
   useEffect(() => {
     db.entities.TeamMember.list().then(t => {
-      setTeam(t);
-      if (t.length > 0 && !form.assessor) setForm(f => ({ ...f, assessor: t[0].name }));
+      const active = t.filter(m => !m.archived);
+      setTeam(active);
+      if (active.length > 0 && !form.assessor) setForm(f => ({ ...f, assessor: active[0].name }));
       setLoading(false);
     });
   }, []);

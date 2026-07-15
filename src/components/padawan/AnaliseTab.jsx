@@ -64,9 +64,10 @@ export default function AnaliseTab({ refreshKey }) {
         db.entities.WeeklyEntry.list('week_start'),
         db.entities.TeamMember.list(),
       ]);
+      const active = t.filter(m => !m.archived);
       setEntries(e);
-      setTeam(t);
-      if (t.length > 0) setSelected(s => s || t[0].name);
+      setTeam(active);
+      if (active.length > 0) setSelected(s => s || active[0].name);
       setLoading(false);
     }
     load();

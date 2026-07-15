@@ -7,13 +7,15 @@ import MemberAvatar from '@/components/padawan/MemberAvatar';
 
 export default function EquipeTab() {
   const [team, setTeam] = useState([]);
+  const [allTeam, setAllTeam] = useState([]); // includes archived, used to detect re-adds
   const [loading, setLoading] = useState(true);
   const [newName, setNewName] = useState('');
   const { toast } = useToast();
 
   const load = async () => {
     const t = await db.entities.TeamMember.list();
-    setTeam(t);
+    setAllTeam(t);
+    setTeam(t.filter(m => !m.archived));
     setLoading(false);
   };
 
@@ -23,9 +25,15 @@ export default function EquipeTab() {
     const name = newName.trim();
     if (!name) { toast({ title: 'Digite um nome.', variant: 'destructive' }); return; }
     if (team.some(m => m.name === name)) { toast({ title: 'Esse assessor já está cadastrado.', variant: 'destructive' }); return; }
-    await db.entities.TeamMember.create({ name });
+    const archivedMatch = allTeam.find(m => m.name === name && m.archived);
+    if (archivedMatch) {
+      await db.entities.TeamMember.update(archivedMatch.id, { archived: false });
+      toast({ title: `${name} reativado — foto e tempo de mesa anteriores foram mantidos.` });
+    } else {
+      await db.entities.TeamMember.create({ name });
+      toast({ title: `${name} adicionado à Mesa Padawan.` });
+    }
     setNewName('');
-    toast({ title: `${name} adicionado à Mesa Padawan.` });
     load();
   };
 
@@ -48,9 +56,10 @@ export default function EquipeTab() {
   };
 
   const handleRemove = async (member) => {
-    if (!window.confirm(`Remover ${member.name} da equipe? O histórico de pontos será mantido.`)) return;
-    await db.entities.TeamMember.delete(member.id);
+    if (!window.confirm(`Remover ${member.name} da equipe? Foto, tempo de mesa e histórico são mantidos — só deixam de aparecer no ranking.`)) return;
+    await db.entities.TeamMember.update(member.id, { archived: true });
     setTeam(prev => prev.filter(m => m.id !== member.id));
+    setAllTeam(prev => prev.map(m => m.id === member.id ? { ...m, archived: true } : m));
     toast({ title: `${member.name} removido.` });
   };
 

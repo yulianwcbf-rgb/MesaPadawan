@@ -27,7 +27,7 @@ export default function RankingTab() {
         db.entities.TeamMember.list()
       ]);
       setEntries(e);
-      setTeam(t);
+      setTeam(t.filter(m => !m.archived));
       setLoading(false);
     }
     load();
