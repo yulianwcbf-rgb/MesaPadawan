@@ -5,7 +5,7 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { fmtBRL, fmtDateBR, fmtMonthBR, fmtPts } from '@/lib/scoring';
 import MemberAvatar from '@/components/padawan/MemberAvatar';
 import {
-  LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend,
+  LineChart, Line, BarChart, Bar, Cell, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend,
 } from 'recharts';
 
 const tooltipStyle = { background: '#163524', border: '1px solid #224030', borderRadius: 8, fontSize: 12, fontFamily: 'monospace' };
@@ -271,7 +271,7 @@ export default function AnaliseTab({ refreshKey }) {
         </div>
 
         {viewMode === 'consolidado' ? (
-          <ConsolidatedTable team={team} entries={entries} />
+          <ConsolidatedCharts team={team} entries={entries} />
         ) : (
           <>
             <div className="grid grid-cols-2 md:grid-cols-3 gap-3 mb-5">
@@ -362,43 +362,75 @@ export default function AnaliseTab({ refreshKey }) {
   );
 }
 
-function ConsolidatedTable({ team, entries }) {
+// One bar chart per metric, each independently sorted highest-to-lowest so
+// it reads as a mini-leaderboard for that specific metric.
+function ConsolidatedCharts({ team, entries }) {
   const rows = team.map(m => {
     const totals = computeTotals(entries.filter(e => e.assessor === m.name));
     return { name: m.name, tempoMesa: m.tempo_mesa_meses || 0, ...totals };
   });
 
+  if (rows.length === 0) {
+    return (
+      <div className="rounded-xl border border-[#224030] bg-[#102A1E] p-8 text-center text-sm text-[#8FA897]">
+        Sem assessores cadastrados para comparar.
+      </div>
+    );
+  }
+
+  const sortedBy = (key) => [...rows].sort((a, b) => b[key] - a[key]);
+
   return (
-    <div className="overflow-x-auto rounded-xl border border-[#224030] bg-[#102A1E]">
-      <table className="w-full text-sm font-mono whitespace-nowrap">
-        <thead>
-          <tr className="text-left text-[10.5px] uppercase tracking-wide text-[#8FA897] border-b border-[#224030]">
-            <th className="p-3">Assessor</th>
-            <th className="p-3">Tempo de mesa</th>
-            <th className="p-3">Captação total</th>
-            <th className="p-3">Reuniões total</th>
-            <th className="p-3">Recomendações total</th>
-            <th className="p-3">Contas totais</th>
-            <th className="p-3">Patrimônio líquido</th>
-            <th className="p-3">Pontos acumulados</th>
-          </tr>
-        </thead>
-        <tbody>
-          {rows.map(r => (
-            <tr key={r.name} className="border-b border-[#1A3225] last:border-b-0">
-              <td className="p-3 font-semibold text-[#F3F6F1]">{r.name}</td>
-              <td className="p-3 text-[#8FA897]">{r.tempoMesa ? `${r.tempoMesa} ${r.tempoMesa === 1 ? 'mês' : 'meses'}` : '—'}</td>
-              <td className="p-3 text-[#F3F6F1]">{fmtBRL(r.captacao)}</td>
-              <td className="p-3 text-[#F3F6F1]">{r.reunioes}</td>
-              <td className="p-3 text-[#F3F6F1]">{r.recomendacoes}</td>
-              <td className="p-3 text-[#F3F6F1]">{r.contas_totais}</td>
-              <td className="p-3 text-[#F3F6F1]">{fmtBRL(r.patrimonio)}</td>
-              <td className="p-3 font-semibold text-[#A8E063]">{fmtPts(r.pontos)}</td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
-    </div>
+    <>
+      <ConsolidatedBarChart
+        title="Pontos acumulados" subtitle="Ranking de pontos entre assessores"
+        data={sortedBy('pontos')} dataKey="pontos" color="#A8E063" formatter={fmtPts} negativeColor="#F2705C"
+      />
+      <ConsolidatedBarChart
+        title="Captação total" subtitle="Comparação de captação entre assessores"
+        data={sortedBy('captacao')} dataKey="captacao" color="#A8E063" formatter={fmtBRL}
+      />
+      <ConsolidatedBarChart
+        title="Patrimônio líquido" subtitle="Comparação de patrimônio entre assessores"
+        data={sortedBy('patrimonio')} dataKey="patrimonio" color="#6C9EFF" formatter={fmtBRL}
+      />
+      <ConsolidatedBarChart
+        title="Reuniões total" subtitle="Comparação de reuniões entre assessores"
+        data={sortedBy('reunioes')} dataKey="reunioes" color="#F2C94C" formatter={String}
+      />
+      <ConsolidatedBarChart
+        title="Recomendações total" subtitle="Comparação de recomendações entre assessores"
+        data={sortedBy('recomendacoes')} dataKey="recomendacoes" color="#C084FC" formatter={String}
+      />
+      <ConsolidatedBarChart
+        title="Contas totais" subtitle="Comparação de contas entre assessores"
+        data={sortedBy('contas_totais')} dataKey="contas_totais" color="#A8E063" formatter={String}
+      />
+      <ConsolidatedBarChart
+        title="Tempo de mesa (meses)" subtitle="Para comparar desempenho entre pessoas com tempo de mesa parecido"
+        data={sortedBy('tempoMesa')} dataKey="tempoMesa" color="#6C9EFF" formatter={(v) => `${v} ${v === 1 ? 'mês' : 'meses'}`}
+      />
+    </>
+  );
+}
+
+function ConsolidatedBarChart({ title, subtitle, data, dataKey, color, formatter, negativeColor }) {
+  return (
+    <ChartCard title={title} subtitle={subtitle}>
+      <ResponsiveContainer>
+        <BarChart data={data} margin={{ top: 5, right: 10, left: 0, bottom: 5 }}>
+          <CartesianGrid strokeDasharray="3 3" stroke="#1A3225" />
+          <XAxis dataKey="name" tick={{ fill: '#8FA897', fontSize: 11, fontFamily: 'monospace' }} stroke="#224030" interval={0} />
+          <YAxis tick={{ fill: '#8FA897', fontSize: 11, fontFamily: 'monospace' }} stroke="#224030" allowDecimals={false} width={60} />
+          <Tooltip contentStyle={tooltipStyle} labelStyle={{ color: '#A8E063' }} formatter={(v) => formatter(v)} cursor={{ fill: 'rgba(168,224,99,0.06)' }} />
+          <Bar dataKey={dataKey} radius={[3, 3, 0, 0]}>
+            {data.map((d, i) => (
+              <Cell key={i} fill={negativeColor && d[dataKey] < 0 ? negativeColor : color} />
+            ))}
+          </Bar>
+        </BarChart>
+      </ResponsiveContainer>
+    </ChartCard>
   );
 }
 
