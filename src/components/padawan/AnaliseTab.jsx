@@ -15,6 +15,7 @@ const VIEW_TABS = [
   { key: 'last5', label: 'Últimos 5', subtitle: 'Últimas 5 semanas lançadas' },
   { key: 'monthly', label: 'Mensal', subtitle: 'Desempenho acumulado por mês' },
   { key: 'lastMonth', label: 'Último Mês', subtitle: 'Performance do último mês' },
+  { key: 'consolidado', label: 'Dados Consolidados', subtitle: 'Comparação de todas as métricas entre todos os assessores' },
 ];
 
 function computeTotals(list) {
@@ -35,6 +36,7 @@ function entryToWeekly(e) {
     week: fmtDateBR(e.week_start),
     captacao: e.captacao || 0,
     consorcio: e.consorcio || 0,
+    patrimonio: e.patrimonio_liquido || 0,
     pa: e.pa || 0,
     r1, r2, ip_ap: ip + ap,
     total_reunioes: r1 + r2 + ip + ap,
@@ -123,6 +125,7 @@ export default function AnaliseTab({ refreshKey }) {
       month: fmtMonthBR(m.ym),
       captacao: m.captacao,
       consorcio: m.consorcio,
+      patrimonio: m.patrimonio,
       pa: m.pa,
       r1: m.r1,
       r2: m.r2,
@@ -266,21 +269,27 @@ export default function AnaliseTab({ refreshKey }) {
           ))}
         </div>
 
-        <div className="grid grid-cols-2 md:grid-cols-3 gap-3 mb-5">
-          <SummaryCard label="Captação total" value={fmtBRL(activeTotals.captacao)} />
-          <SummaryCard label="Reuniões total" value={String(activeTotals.reunioes)} />
-          <SummaryCard label="Recomendações total" value={String(activeTotals.recomendacoes)} />
-          <SummaryCard label="Contas totais" value={String(activeTotals.contas_totais)} />
-          <SummaryCard label="Patrimônio líquido" value={fmtBRL(activeTotals.patrimonio)} />
-          <SummaryCard label="Pontos acumulados" value={fmtPts(activeTotals.pontos)} accent />
-        </div>
-
-        {activeData.length > 0 ? (
-          <ChartsGroup data={activeData} xKey={activeXKey} selected={selected} />
+        {viewMode === 'consolidado' ? (
+          <ConsolidatedTable team={team} entries={entries} />
         ) : (
-          <div className="rounded-xl border border-[#224030] bg-[#102A1E] p-8 text-center text-sm text-[#8FA897]">
-            Sem dados para esta visualização.
-          </div>
+          <>
+            <div className="grid grid-cols-2 md:grid-cols-3 gap-3 mb-5">
+              <SummaryCard label="Captação total" value={fmtBRL(activeTotals.captacao)} />
+              <SummaryCard label="Reuniões total" value={String(activeTotals.reunioes)} />
+              <SummaryCard label="Recomendações total" value={String(activeTotals.recomendacoes)} />
+              <SummaryCard label="Contas totais" value={String(activeTotals.contas_totais)} />
+              <SummaryCard label="Patrimônio líquido" value={fmtBRL(activeTotals.patrimonio)} />
+              <SummaryCard label="Pontos acumulados" value={fmtPts(activeTotals.pontos)} accent />
+            </div>
+
+            {activeData.length > 0 ? (
+              <ChartsGroup data={activeData} xKey={activeXKey} selected={selected} />
+            ) : (
+              <div className="rounded-xl border border-[#224030] bg-[#102A1E] p-8 text-center text-sm text-[#8FA897]">
+                Sem dados para esta visualização.
+              </div>
+            )}
+          </>
         )}
       </section>
 
@@ -352,17 +361,59 @@ export default function AnaliseTab({ refreshKey }) {
   );
 }
 
+function ConsolidatedTable({ team, entries }) {
+  const rows = team.map(m => {
+    const totals = computeTotals(entries.filter(e => e.assessor === m.name));
+    return { name: m.name, tempoMesa: m.tempo_mesa_meses || 0, ...totals };
+  });
+
+  return (
+    <div className="overflow-x-auto rounded-xl border border-[#224030] bg-[#102A1E]">
+      <table className="w-full text-sm font-mono whitespace-nowrap">
+        <thead>
+          <tr className="text-left text-[10.5px] uppercase tracking-wide text-[#8FA897] border-b border-[#224030]">
+            <th className="p-3">Assessor</th>
+            <th className="p-3">Tempo de mesa</th>
+            <th className="p-3">Captação total</th>
+            <th className="p-3">Reuniões total</th>
+            <th className="p-3">Recomendações total</th>
+            <th className="p-3">Contas totais</th>
+            <th className="p-3">Patrimônio líquido</th>
+            <th className="p-3">Pontos acumulados</th>
+          </tr>
+        </thead>
+        <tbody>
+          {rows.map(r => (
+            <tr key={r.name} className="border-b border-[#1A3225] last:border-b-0">
+              <td className="p-3 font-semibold text-[#F3F6F1]">{r.name}</td>
+              <td className="p-3 text-[#8FA897]">{r.tempoMesa ? `${r.tempoMesa} ${r.tempoMesa === 1 ? 'mês' : 'meses'}` : '—'}</td>
+              <td className="p-3 text-[#F3F6F1]">{fmtBRL(r.captacao)}</td>
+              <td className="p-3 text-[#F3F6F1]">{r.reunioes}</td>
+              <td className="p-3 text-[#F3F6F1]">{r.recomendacoes}</td>
+              <td className="p-3 text-[#F3F6F1]">{r.contas_totais}</td>
+              <td className="p-3 text-[#F3F6F1]">{fmtBRL(r.patrimonio)}</td>
+              <td className="p-3 font-semibold text-[#A8E063]">{fmtPts(r.pontos)}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  );
+}
+
 function ChartsGroup({ data, xKey, selected }) {
   return (
     <>
-      <ChartCard title={`Captação — ${selected}`} subtitle="Evolução">
+      <ChartCard title={`Captação × Patrimônio líquido — ${selected}`} subtitle="Evolução">
         <ResponsiveContainer>
           <LineChart data={data} margin={{ top: 5, right: 10, left: 0, bottom: 5 }}>
             <CartesianGrid strokeDasharray="3 3" stroke="#1A3225" />
             <XAxis dataKey={xKey} tick={{ fill: '#8FA897', fontSize: 11, fontFamily: 'monospace' }} stroke="#224030" />
             <YAxis tick={{ fill: '#8FA897', fontSize: 11, fontFamily: 'monospace' }} stroke="#224030" tickFormatter={(v) => fmtBRL(v).replace('R$ ', '')} width={70} />
             <Tooltip contentStyle={tooltipStyle} labelStyle={{ color: '#A8E063' }} formatter={(v) => fmtBRL(v)} />
-            <Line type="monotone" dataKey="captacao" stroke="#A8E063" strokeWidth={2} dot={{ r: 3, fill: '#A8E063' }} activeDot={{ r: 5 }} connectNulls />
+            <Legend wrapperStyle={{ fontSize: 11, fontFamily: 'monospace' }} />
+            <Line type="monotone" dataKey="captacao" name="Captação" stroke="#A8E063" strokeWidth={2} dot={{ r: 3, fill: '#A8E063' }} activeDot={{ r: 5 }} connectNulls />
+            <Line type="monotone" dataKey="patrimonio" name="Patrimônio líquido" stroke="#6C9EFF" strokeWidth={2} dot={{ r: 3, fill: '#6C9EFF' }} activeDot={{ r: 5 }} connectNulls />
           </LineChart>
         </ResponsiveContainer>
       </ChartCard>

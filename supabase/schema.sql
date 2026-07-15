@@ -9,6 +9,7 @@ create table if not exists public.team_members (
   id uuid primary key default gen_random_uuid(),
   name text not null,
   photo_url text,
+  tempo_mesa_meses numeric default 0,
   created_date timestamptz not null default now(),
   updated_date timestamptz not null default now()
 );
@@ -45,6 +46,9 @@ create table if not exists public.weekly_entries (
 alter table public.weekly_entries add column if not exists pipe_proxima_semana numeric default 0;
 alter table public.weekly_entries add column if not exists pipe_ip numeric default 0;
 alter table public.weekly_entries add column if not exists pipe_ap numeric default 0;
+
+-- Migration (safe to re-run): add tempo de mesa to an existing team_members.
+alter table public.team_members add column if not exists tempo_mesa_meses numeric default 0;
 
 -- Enable Row Level Security
 alter table public.team_members enable row level security;

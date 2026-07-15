@@ -29,6 +29,12 @@ export default function EquipeTab() {
     load();
   };
 
+  const handleTempoMesa = async (member, value) => {
+    const meses = Math.max(0, parseInt(value, 10) || 0);
+    await db.entities.TeamMember.update(member.id, { tempo_mesa_meses: meses });
+    setTeam(prev => prev.map(m => m.id === member.id ? { ...m, tempo_mesa_meses: meses } : m));
+  };
+
   const handlePhoto = async (member, file) => {
     if (!file) return;
     try {
@@ -76,6 +82,18 @@ export default function EquipeTab() {
                 <span className="text-sm font-semibold text-[#F3F6F1] truncate">{m.name}</span>
               </div>
               <div className="flex items-center gap-3 flex-shrink-0">
+                <label className="flex items-center gap-1.5 text-xs text-[#5C7466] font-mono">
+                  Tempo de mesa
+                  <input
+                    type="number"
+                    min="0"
+                    value={m.tempo_mesa_meses || ''}
+                    onChange={e => handleTempoMesa(m, e.target.value)}
+                    placeholder="0"
+                    className="w-14 bg-[#163524] border border-[#224030] text-[#F3F6F1] rounded px-1.5 py-1 font-mono text-xs outline-none focus:border-[#A8E063] transition-colors"
+                  />
+                  <span>meses</span>
+                </label>
                 <label className="text-xs text-[#5C7466] hover:text-[#A8E063] transition-colors font-mono cursor-pointer">
                   Foto
                   <input type="file" accept="image/*" className="hidden" onChange={e => handlePhoto(m, e.target.files[0])} />
