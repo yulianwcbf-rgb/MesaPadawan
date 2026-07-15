@@ -70,9 +70,11 @@ export default function RankingTab() {
       ? entries.filter(e => e.week_start === selectedWeek)
       : entries;
 
+  const activeNames = new Set(team.map(m => m.name));
   const totals = {};
   team.forEach(m => { totals[m.name] = 0; });
   filtered.forEach(e => {
+    if (!activeNames.has(e.assessor)) return;
     totals[e.assessor] = (totals[e.assessor] || 0) + (e.total_points || 0);
   });
 
