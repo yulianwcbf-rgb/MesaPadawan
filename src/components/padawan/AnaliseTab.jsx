@@ -39,6 +39,7 @@ function entryToWeekly(e) {
     patrimonio: e.patrimonio_liquido || 0,
     pa: e.pa || 0,
     r1, r2, ip_ap: ip + ap,
+    reuniao_agendada: e.reuniao_agendada || 0,
     total_reunioes: r1 + r2 + ip + ap,
     receita_escritorio: e.receita_escritorio || 0,
     recomendacoes: e.recomendacoes || 0,
@@ -102,7 +103,7 @@ export default function AnaliseTab({ refreshKey }) {
     const monthlyMap = {};
     mine.forEach(e => {
       const ym = e.week_start.slice(0, 7);
-      if (!monthlyMap[ym]) monthlyMap[ym] = { ym, captacao: 0, consorcio: 0, pa: 0, r1: 0, r2: 0, ip_ap: 0, receita_escritorio: 0, recomendacoes: 0, contas: 0, contas_totais: 0, patrimonio: 0, pipe_proxima_semana: 0, pipe_ip: 0, pipe_ap: 0, pontos: 0, _entries: [] };
+      if (!monthlyMap[ym]) monthlyMap[ym] = { ym, captacao: 0, consorcio: 0, pa: 0, r1: 0, r2: 0, ip_ap: 0, reuniao_agendada: 0, receita_escritorio: 0, recomendacoes: 0, contas: 0, contas_totais: 0, patrimonio: 0, pipe_proxima_semana: 0, pipe_ip: 0, pipe_ap: 0, pontos: 0, _entries: [] };
       const m = monthlyMap[ym];
       m.captacao += e.captacao || 0;
       m.consorcio += e.consorcio || 0;
@@ -110,6 +111,7 @@ export default function AnaliseTab({ refreshKey }) {
       m.r1 += e.r1 || 0;
       m.r2 += e.r2 || 0;
       m.ip_ap += (e.reuniao_ip || 0) + (e.reuniao_ap || 0);
+      m.reuniao_agendada += e.reuniao_agendada || 0;
       m.receita_escritorio += e.receita_escritorio || 0;
       m.recomendacoes += e.recomendacoes || 0;
       m.contas += e.contas || 0;
@@ -131,6 +133,7 @@ export default function AnaliseTab({ refreshKey }) {
       r1: m.r1,
       r2: m.r2,
       ip_ap: m.ip_ap,
+      reuniao_agendada: m.reuniao_agendada,
       total_reunioes: m.r1 + m.r2 + m.ip_ap,
       receita_escritorio: m.receita_escritorio,
       recomendacoes: m.recomendacoes,
@@ -451,7 +454,7 @@ function ChartsGroup({ data, xKey, selected }) {
         </ResponsiveContainer>
       </ChartCard>
 
-      <ChartCard title={`Reuniões — ${selected}`} subtitle="R1, R2 e IP/AP">
+      <ChartCard title={`Reuniões — ${selected}`} subtitle="Agendadas, R1, R2 e IP/AP">
         <ResponsiveContainer>
           <BarChart data={data} margin={{ top: 5, right: 10, left: 0, bottom: 5 }}>
             <CartesianGrid strokeDasharray="3 3" stroke="#1A3225" />
@@ -459,6 +462,7 @@ function ChartsGroup({ data, xKey, selected }) {
             <YAxis tick={{ fill: '#8FA897', fontSize: 11, fontFamily: 'monospace' }} stroke="#224030" allowDecimals={false} width={40} />
             <Tooltip contentStyle={tooltipStyle} labelStyle={{ color: '#A8E063' }} cursor={{ fill: 'rgba(168,224,99,0.06)' }} />
             <Legend wrapperStyle={{ fontSize: 11, fontFamily: 'monospace' }} />
+            <Bar dataKey="reuniao_agendada" name="Agendadas" fill="#5EEAD4" radius={[3, 3, 0, 0]} />
             <Bar dataKey="r1" name="R1" fill="#A8E063" radius={[3, 3, 0, 0]} />
             <Bar dataKey="r2" name="R2" fill="#6C9EFF" radius={[3, 3, 0, 0]} />
             <Bar dataKey="ip_ap" name="IP/AP" fill="#F2C94C" radius={[3, 3, 0, 0]} />
