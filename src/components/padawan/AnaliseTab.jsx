@@ -368,12 +368,35 @@ export default function AnaliseTab({ refreshKey }) {
 // One bar chart per metric, each independently sorted highest-to-lowest so
 // it reads as a mini-leaderboard for that specific metric.
 function ConsolidatedCharts({ team, entries }) {
-  const rows = team.map(m => {
+  const weeks = useMemo(
+    () => [...new Set(entries.map(e => e.week_start))].sort().reverse(),
+    [entries]
+  );
+  const [week, setWeek] = useState(weeks[0] || '');
+
+  useEffect(() => {
+    if (weeks.length && !weeks.includes(week)) setWeek(weeks[0]);
+  }, [weeks]);
+
+  const totalRows = team.map(m => {
     const totals = computeTotals(entries.filter(e => e.assessor === m.name));
     return { name: m.name, tempoMesa: m.tempo_mesa_meses || 0, ...totals };
   });
 
-  if (rows.length === 0) {
+  const weekRows = team.map(m => {
+    const entry = entries.find(e => e.assessor === m.name && e.week_start === week);
+    return {
+      name: m.name,
+      captacao: entry?.captacao || 0,
+      patrimonio: entry?.patrimonio_liquido || 0,
+      reunioes: (entry?.r1 || 0) + (entry?.r2 || 0) + (entry?.reuniao_ip || 0) + (entry?.reuniao_ap || 0),
+      recomendacoes: entry?.recomendacoes || 0,
+      contas_totais: entry?.contas_totais || 0,
+      pontos: entry?.total_points || 0,
+    };
+  });
+
+  if (totalRows.length === 0) {
     return (
       <div className="rounded-xl border border-[#224030] bg-[#102A1E] p-8 text-center text-sm text-[#8FA897]">
         Sem assessores cadastrados para comparar.
@@ -381,38 +404,84 @@ function ConsolidatedCharts({ team, entries }) {
     );
   }
 
-  const sortedBy = (key) => [...rows].sort((a, b) => b[key] - a[key]);
+  const sortedBy = (rows, key) => [...rows].sort((a, b) => b[key] - a[key]);
 
   return (
     <>
+      <SectionHeader title="Totais" subtitle="Comparação acumulada entre todos os assessores" />
       <ConsolidatedBarChart
         title="Pontos acumulados" subtitle="Ranking de pontos entre assessores"
-        data={sortedBy('pontos')} dataKey="pontos" color="#A8E063" formatter={fmtPts} negativeColor="#F2705C"
+        data={sortedBy(totalRows, 'pontos')} dataKey="pontos" color="#A8E063" formatter={fmtPts} negativeColor="#F2705C"
       />
       <ConsolidatedBarChart
         title="Captação total" subtitle="Comparação de captação entre assessores"
-        data={sortedBy('captacao')} dataKey="captacao" color="#A8E063" formatter={fmtBRL}
+        data={sortedBy(totalRows, 'captacao')} dataKey="captacao" color="#A8E063" formatter={fmtBRL}
       />
       <ConsolidatedBarChart
         title="Patrimônio líquido" subtitle="Comparação de patrimônio entre assessores"
-        data={sortedBy('patrimonio')} dataKey="patrimonio" color="#6C9EFF" formatter={fmtBRL}
+        data={sortedBy(totalRows, 'patrimonio')} dataKey="patrimonio" color="#6C9EFF" formatter={fmtBRL}
       />
       <ConsolidatedBarChart
         title="Reuniões total" subtitle="Comparação de reuniões entre assessores"
-        data={sortedBy('reunioes')} dataKey="reunioes" color="#F2C94C" formatter={String}
+        data={sortedBy(totalRows, 'reunioes')} dataKey="reunioes" color="#F2C94C" formatter={String}
       />
       <ConsolidatedBarChart
         title="Recomendações total" subtitle="Comparação de recomendações entre assessores"
-        data={sortedBy('recomendacoes')} dataKey="recomendacoes" color="#C084FC" formatter={String}
+        data={sortedBy(totalRows, 'recomendacoes')} dataKey="recomendacoes" color="#C084FC" formatter={String}
       />
       <ConsolidatedBarChart
         title="Contas totais" subtitle="Comparação de contas entre assessores"
-        data={sortedBy('contas_totais')} dataKey="contas_totais" color="#A8E063" formatter={String}
+        data={sortedBy(totalRows, 'contas_totais')} dataKey="contas_totais" color="#A8E063" formatter={String}
       />
       <ConsolidatedBarChart
         title="Tempo de mesa (meses)" subtitle="Para comparar desempenho entre pessoas com tempo de mesa parecido"
-        data={sortedBy('tempoMesa')} dataKey="tempoMesa" color="#6C9EFF" formatter={(v) => `${v} ${v === 1 ? 'mês' : 'meses'}`}
+        data={sortedBy(totalRows, 'tempoMesa')} dataKey="tempoMesa" color="#6C9EFF" formatter={(v) => `${v} ${v === 1 ? 'mês' : 'meses'}`}
       />
+
+      <div className="flex items-center justify-between flex-wrap gap-3 mt-8 mb-4 pb-2 border-b border-[#224030]">
+        <div>
+          <h2 className="font-heading text-lg font-semibold text-[#F3F6F1]">Semanal</h2>
+          <p className="text-xs text-[#5C7466] mt-0.5">Comparação entre assessores em uma semana específica</p>
+        </div>
+        {weeks.length > 0 && (
+          <select value={week} onChange={e => setWeek(e.target.value)} className="field-input max-w-[200px]">
+            {weeks.map(w => <option key={w} value={w}>Semana de {fmtDateBR(w)}</option>)}
+          </select>
+        )}
+      </div>
+
+      {weeks.length === 0 ? (
+        <div className="rounded-xl border border-[#224030] bg-[#102A1E] p-8 text-center text-sm text-[#8FA897]">
+          Sem semanas lançadas ainda.
+        </div>
+      ) : (
+        <>
+          <ConsolidatedBarChart
+            title="Pontos da semana" subtitle={`Comparação entre assessores — ${fmtDateBR(week)}`}
+            data={sortedBy(weekRows, 'pontos')} dataKey="pontos" color="#A8E063" formatter={fmtPts} negativeColor="#F2705C"
+          />
+          <ConsolidatedBarChart
+            title="Captação da semana" subtitle={`Comparação entre assessores — ${fmtDateBR(week)}`}
+            data={sortedBy(weekRows, 'captacao')} dataKey="captacao" color="#A8E063" formatter={fmtBRL}
+          />
+          <ConsolidatedBarChart
+            title="Patrimônio líquido da semana" subtitle={`Comparação entre assessores — ${fmtDateBR(week)}`}
+            data={sortedBy(weekRows, 'patrimonio')} dataKey="patrimonio" color="#6C9EFF" formatter={fmtBRL}
+          />
+          <ConsolidatedBarChart
+            title="Reuniões da semana" subtitle={`Comparação entre assessores — ${fmtDateBR(week)}`}
+            data={sortedBy(weekRows, 'reunioes')} dataKey="reunioes" color="#F2C94C" formatter={String}
+          />
+          <ConsolidatedBarChart
+            title="Recomendações da semana" subtitle={`Comparação entre assessores — ${fmtDateBR(week)}`}
+            data={sortedBy(weekRows, 'recomendacoes')} dataKey="recomendacoes" color="#C084FC" formatter={String}
+          />
+          <ConsolidatedBarChart
+            title="Contas totais da semana" subtitle={`Comparação entre assessores — ${fmtDateBR(week)}`}
+            data={sortedBy(weekRows, 'contas_totais')} dataKey="contas_totais" color="#A8E063" formatter={String}
+          />
+        </>
+      )}
     </>
   );
 }
