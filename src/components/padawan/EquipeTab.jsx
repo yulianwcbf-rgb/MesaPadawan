@@ -7,13 +7,15 @@ import MemberAvatar from '@/components/padawan/MemberAvatar';
 
 export default function EquipeTab() {
   const [team, setTeam] = useState([]);
+  const [allTeam, setAllTeam] = useState([]); // includes archived, used to detect re-adds
   const [loading, setLoading] = useState(true);
   const [newName, setNewName] = useState('');
   const { toast } = useToast();
 
   const load = async () => {
     const t = await db.entities.TeamMember.list();
-    setTeam(t);
+    setAllTeam(t);
+    setTeam(t.filter(m => !m.archived));
     setLoading(false);
   };
 
@@ -23,10 +25,22 @@ export default function EquipeTab() {
     const name = newName.trim();
     if (!name) { toast({ title: 'Digite um nome.', variant: 'destructive' }); return; }
     if (team.some(m => m.name === name)) { toast({ title: 'Esse assessor já está cadastrado.', variant: 'destructive' }); return; }
-    await db.entities.TeamMember.create({ name });
+    const archivedMatch = allTeam.find(m => m.name === name && m.archived);
+    if (archivedMatch) {
+      await db.entities.TeamMember.update(archivedMatch.id, { archived: false });
+      toast({ title: `${name} reativado — foto e tempo de mesa anteriores foram mantidos.` });
+    } else {
+      await db.entities.TeamMember.create({ name });
+      toast({ title: `${name} adicionado à Mesa Padawan.` });
+    }
     setNewName('');
-    toast({ title: `${name} adicionado à Mesa Padawan.` });
     load();
+  };
+
+  const handleTempoMesa = async (member, value) => {
+    const meses = Math.max(0, parseInt(value, 10) || 0);
+    await db.entities.TeamMember.update(member.id, { tempo_mesa_meses: meses });
+    setTeam(prev => prev.map(m => m.id === member.id ? { ...m, tempo_mesa_meses: meses } : m));
   };
 
   const handlePhoto = async (member, file) => {
@@ -42,9 +56,10 @@ export default function EquipeTab() {
   };
 
   const handleRemove = async (member) => {
-    if (!window.confirm(`Remover ${member.name} da equipe? O histórico de pontos será mantido.`)) return;
-    await db.entities.TeamMember.delete(member.id);
+    if (!window.confirm(`Remover ${member.name} da equipe? Foto, tempo de mesa e histórico são mantidos — só deixam de aparecer no ranking.`)) return;
+    await db.entities.TeamMember.update(member.id, { archived: true });
     setTeam(prev => prev.filter(m => m.id !== member.id));
+    setAllTeam(prev => prev.map(m => m.id === member.id ? { ...m, archived: true } : m));
     toast({ title: `${member.name} removido.` });
   };
 
@@ -76,6 +91,18 @@ export default function EquipeTab() {
                 <span className="text-sm font-semibold text-[#F3F6F1] truncate">{m.name}</span>
               </div>
               <div className="flex items-center gap-3 flex-shrink-0">
+                <label className="flex items-center gap-1.5 text-xs text-[#5C7466] font-mono">
+                  Tempo de mesa
+                  <input
+                    type="number"
+                    min="0"
+                    value={m.tempo_mesa_meses || ''}
+                    onChange={e => handleTempoMesa(m, e.target.value)}
+                    placeholder="0"
+                    className="w-14 bg-[#163524] border border-[#224030] text-[#F3F6F1] rounded px-1.5 py-1 font-mono text-xs outline-none focus:border-[#A8E063] transition-colors"
+                  />
+                  <span>meses</span>
+                </label>
                 <label className="text-xs text-[#5C7466] hover:text-[#A8E063] transition-colors font-mono cursor-pointer">
                   Foto
                   <input type="file" accept="image/*" className="hidden" onChange={e => handlePhoto(m, e.target.files[0])} />

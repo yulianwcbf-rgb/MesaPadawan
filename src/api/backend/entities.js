@@ -14,7 +14,9 @@ import { readJSON, writeJSON, newId, nowISO } from './store';
 // /base44/entities. Keeps numeric fields numeric even when a form omits them.
 const SCHEMAS = {
   TeamMember: {
-    defaults: {},
+    defaults: {
+      archived: false,
+    },
   },
   WeeklyEntry: {
     defaults: {

@@ -5,7 +5,7 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { fmtBRL, fmtDateBR, fmtMonthBR, fmtPts } from '@/lib/scoring';
 import MemberAvatar from '@/components/padawan/MemberAvatar';
 import {
-  LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend,
+  LineChart, Line, BarChart, Bar, Cell, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend,
 } from 'recharts';
 
 const tooltipStyle = { background: '#163524', border: '1px solid #224030', borderRadius: 8, fontSize: 12, fontFamily: 'monospace' };
@@ -15,6 +15,7 @@ const VIEW_TABS = [
   { key: 'last5', label: 'Últimos 5', subtitle: 'Últimas 5 semanas lançadas' },
   { key: 'monthly', label: 'Mensal', subtitle: 'Desempenho acumulado por mês' },
   { key: 'lastMonth', label: 'Último Mês', subtitle: 'Performance do último mês' },
+  { key: 'consolidado', label: 'Dados Consolidados', subtitle: 'Comparação de todas as métricas entre todos os assessores' },
 ];
 
 function computeTotals(list) {
@@ -35,8 +36,10 @@ function entryToWeekly(e) {
     week: fmtDateBR(e.week_start),
     captacao: e.captacao || 0,
     consorcio: e.consorcio || 0,
+    patrimonio: e.patrimonio_liquido || 0,
     pa: e.pa || 0,
     r1, r2, ip_ap: ip + ap,
+    reuniao_agendada: e.reuniao_agendada || 0,
     total_reunioes: r1 + r2 + ip + ap,
     receita_escritorio: e.receita_escritorio || 0,
     recomendacoes: e.recomendacoes || 0,
@@ -62,9 +65,10 @@ export default function AnaliseTab({ refreshKey }) {
         db.entities.WeeklyEntry.list('week_start'),
         db.entities.TeamMember.list(),
       ]);
+      const active = t.filter(m => !m.archived);
       setEntries(e);
-      setTeam(t);
-      if (t.length > 0) setSelected(s => s || t[0].name);
+      setTeam(active);
+      if (active.length > 0) setSelected(s => s || active[0].name);
       setLoading(false);
     }
     load();
@@ -99,7 +103,7 @@ export default function AnaliseTab({ refreshKey }) {
     const monthlyMap = {};
     mine.forEach(e => {
       const ym = e.week_start.slice(0, 7);
-      if (!monthlyMap[ym]) monthlyMap[ym] = { ym, captacao: 0, consorcio: 0, pa: 0, r1: 0, r2: 0, ip_ap: 0, receita_escritorio: 0, recomendacoes: 0, contas: 0, contas_totais: 0, patrimonio: 0, pipe_proxima_semana: 0, pipe_ip: 0, pipe_ap: 0, pontos: 0, _entries: [] };
+      if (!monthlyMap[ym]) monthlyMap[ym] = { ym, captacao: 0, consorcio: 0, pa: 0, r1: 0, r2: 0, ip_ap: 0, reuniao_agendada: 0, receita_escritorio: 0, recomendacoes: 0, contas: 0, contas_totais: 0, patrimonio: 0, pipe_proxima_semana: 0, pipe_ip: 0, pipe_ap: 0, pontos: 0, _entries: [] };
       const m = monthlyMap[ym];
       m.captacao += e.captacao || 0;
       m.consorcio += e.consorcio || 0;
@@ -107,6 +111,7 @@ export default function AnaliseTab({ refreshKey }) {
       m.r1 += e.r1 || 0;
       m.r2 += e.r2 || 0;
       m.ip_ap += (e.reuniao_ip || 0) + (e.reuniao_ap || 0);
+      m.reuniao_agendada += e.reuniao_agendada || 0;
       m.receita_escritorio += e.receita_escritorio || 0;
       m.recomendacoes += e.recomendacoes || 0;
       m.contas += e.contas || 0;
@@ -123,10 +128,12 @@ export default function AnaliseTab({ refreshKey }) {
       month: fmtMonthBR(m.ym),
       captacao: m.captacao,
       consorcio: m.consorcio,
+      patrimonio: m.patrimonio,
       pa: m.pa,
       r1: m.r1,
       r2: m.r2,
       ip_ap: m.ip_ap,
+      reuniao_agendada: m.reuniao_agendada,
       total_reunioes: m.r1 + m.r2 + m.ip_ap,
       receita_escritorio: m.receita_escritorio,
       recomendacoes: m.recomendacoes,
@@ -220,13 +227,33 @@ export default function AnaliseTab({ refreshKey }) {
   return (
     <div className="space-y-8">
       {/* Member selector + photo */}
-      <div className="flex items-center gap-4 flex-wrap">
-        <MemberAvatar member={selectedMember} size={52} />
-        <div className="flex flex-col gap-1">
-          <span className="font-mono text-xs text-[#8FA897]">Assessor:</span>
-          <select value={selected} onChange={e => setSelected(e.target.value)} className="field-input max-w-[260px]">
-            {team.map(m => <option key={m.id} value={m.name}>{m.name}</option>)}
-          </select>
+      <div className="flex items-center gap-5 flex-wrap">
+        <MemberAvatar member={selectedMember} size={112} />
+        <div className="flex flex-col gap-2">
+          <h2 className="font-heading text-2xl font-bold text-[#F3F6F1]">{selected}</h2>
+          <p className="font-mono text-sm text-[#A8E063]">
+            Patrimônio líquido: <span className="font-semibold">{fmtBRL(totals.patrimonio)}</span>
+          </p>
+          <p className="font-mono text-sm text-[#8FA897]">
+            Tempo de mesa: <span className="font-semibold text-[#F3F6F1]">
+              {selectedMember?.tempo_mesa_meses ? `${selectedMember.tempo_mesa_meses} ${selectedMember.tempo_mesa_meses === 1 ? 'mês' : 'meses'}` : '—'}
+            </span>
+          </p>
+          <div className="flex gap-2 flex-wrap mt-1">
+            {team.map(m => (
+              <button
+                key={m.id}
+                onClick={() => setSelected(m.name)}
+                className={`font-mono text-xs px-3 py-1.5 rounded-full border transition-colors ${
+                  selected === m.name
+                    ? 'bg-[#A8E063] border-[#A8E063] text-[#0B1F14] font-semibold'
+                    : 'border-[#224030] text-[#8FA897] hover:text-[#F3F6F1] hover:border-[#3A5C46]'
+                }`}
+              >
+                {m.name}
+              </button>
+            ))}
+          </div>
         </div>
       </div>
 
@@ -251,21 +278,27 @@ export default function AnaliseTab({ refreshKey }) {
           ))}
         </div>
 
-        <div className="grid grid-cols-2 md:grid-cols-3 gap-3 mb-5">
-          <SummaryCard label="Captação total" value={fmtBRL(activeTotals.captacao)} />
-          <SummaryCard label="Reuniões total" value={String(activeTotals.reunioes)} />
-          <SummaryCard label="Recomendações total" value={String(activeTotals.recomendacoes)} />
-          <SummaryCard label="Contas totais" value={String(activeTotals.contas_totais)} />
-          <SummaryCard label="Patrimônio líquido" value={fmtBRL(activeTotals.patrimonio)} />
-          <SummaryCard label="Pontos acumulados" value={fmtPts(activeTotals.pontos)} accent />
-        </div>
-
-        {activeData.length > 0 ? (
-          <ChartsGroup data={activeData} xKey={activeXKey} selected={selected} />
+        {viewMode === 'consolidado' ? (
+          <ConsolidatedCharts team={team} entries={entries} />
         ) : (
-          <div className="rounded-xl border border-[#224030] bg-[#102A1E] p-8 text-center text-sm text-[#8FA897]">
-            Sem dados para esta visualização.
-          </div>
+          <>
+            <div className="grid grid-cols-2 md:grid-cols-3 gap-3 mb-5">
+              <SummaryCard label="Captação total" value={fmtBRL(activeTotals.captacao)} />
+              <SummaryCard label="Reuniões total" value={String(activeTotals.reunioes)} />
+              <SummaryCard label="Recomendações total" value={String(activeTotals.recomendacoes)} />
+              <SummaryCard label="Contas totais" value={String(activeTotals.contas_totais)} />
+              <SummaryCard label="Patrimônio líquido" value={fmtBRL(activeTotals.patrimonio)} />
+              <SummaryCard label="Pontos acumulados" value={fmtPts(activeTotals.pontos)} accent />
+            </div>
+
+            {activeData.length > 0 ? (
+              <ChartsGroup data={activeData} xKey={activeXKey} selected={selected} />
+            ) : (
+              <div className="rounded-xl border border-[#224030] bg-[#102A1E] p-8 text-center text-sm text-[#8FA897]">
+                Sem dados para esta visualização.
+              </div>
+            )}
+          </>
         )}
       </section>
 
@@ -337,22 +370,96 @@ export default function AnaliseTab({ refreshKey }) {
   );
 }
 
+// One bar chart per metric, each independently sorted highest-to-lowest so
+// it reads as a mini-leaderboard for that specific metric.
+function ConsolidatedCharts({ team, entries }) {
+  const rows = team.map(m => {
+    const totals = computeTotals(entries.filter(e => e.assessor === m.name));
+    return { name: m.name, tempoMesa: m.tempo_mesa_meses || 0, ...totals };
+  });
+
+  if (rows.length === 0) {
+    return (
+      <div className="rounded-xl border border-[#224030] bg-[#102A1E] p-8 text-center text-sm text-[#8FA897]">
+        Sem assessores cadastrados para comparar.
+      </div>
+    );
+  }
+
+  const sortedBy = (key) => [...rows].sort((a, b) => b[key] - a[key]);
+
+  return (
+    <>
+      <ConsolidatedBarChart
+        title="Pontos acumulados" subtitle="Ranking de pontos entre assessores"
+        data={sortedBy('pontos')} dataKey="pontos" color="#A8E063" formatter={fmtPts} negativeColor="#F2705C"
+      />
+      <ConsolidatedBarChart
+        title="Captação total" subtitle="Comparação de captação entre assessores"
+        data={sortedBy('captacao')} dataKey="captacao" color="#A8E063" formatter={fmtBRL}
+      />
+      <ConsolidatedBarChart
+        title="Patrimônio líquido" subtitle="Comparação de patrimônio entre assessores"
+        data={sortedBy('patrimonio')} dataKey="patrimonio" color="#6C9EFF" formatter={fmtBRL}
+      />
+      <ConsolidatedBarChart
+        title="Reuniões total" subtitle="Comparação de reuniões entre assessores"
+        data={sortedBy('reunioes')} dataKey="reunioes" color="#F2C94C" formatter={String}
+      />
+      <ConsolidatedBarChart
+        title="Recomendações total" subtitle="Comparação de recomendações entre assessores"
+        data={sortedBy('recomendacoes')} dataKey="recomendacoes" color="#C084FC" formatter={String}
+      />
+      <ConsolidatedBarChart
+        title="Contas totais" subtitle="Comparação de contas entre assessores"
+        data={sortedBy('contas_totais')} dataKey="contas_totais" color="#A8E063" formatter={String}
+      />
+      <ConsolidatedBarChart
+        title="Tempo de mesa (meses)" subtitle="Para comparar desempenho entre pessoas com tempo de mesa parecido"
+        data={sortedBy('tempoMesa')} dataKey="tempoMesa" color="#6C9EFF" formatter={(v) => `${v} ${v === 1 ? 'mês' : 'meses'}`}
+      />
+    </>
+  );
+}
+
+function ConsolidatedBarChart({ title, subtitle, data, dataKey, color, formatter, negativeColor }) {
+  return (
+    <ChartCard title={title} subtitle={subtitle}>
+      <ResponsiveContainer>
+        <BarChart data={data} margin={{ top: 5, right: 10, left: 0, bottom: 5 }}>
+          <CartesianGrid strokeDasharray="3 3" stroke="#1A3225" />
+          <XAxis dataKey="name" tick={{ fill: '#8FA897', fontSize: 11, fontFamily: 'monospace' }} stroke="#224030" interval={0} />
+          <YAxis tick={{ fill: '#8FA897', fontSize: 11, fontFamily: 'monospace' }} stroke="#224030" allowDecimals={false} width={60} />
+          <Tooltip contentStyle={tooltipStyle} labelStyle={{ color: '#A8E063' }} formatter={(v) => formatter(v)} cursor={{ fill: 'rgba(168,224,99,0.06)' }} />
+          <Bar dataKey={dataKey} radius={[3, 3, 0, 0]}>
+            {data.map((d, i) => (
+              <Cell key={i} fill={negativeColor && d[dataKey] < 0 ? negativeColor : color} />
+            ))}
+          </Bar>
+        </BarChart>
+      </ResponsiveContainer>
+    </ChartCard>
+  );
+}
+
 function ChartsGroup({ data, xKey, selected }) {
   return (
     <>
-      <ChartCard title={`Captação — ${selected}`} subtitle="Evolução">
+      <ChartCard title={`Captação × Patrimônio líquido — ${selected}`} subtitle="Evolução">
         <ResponsiveContainer>
           <LineChart data={data} margin={{ top: 5, right: 10, left: 0, bottom: 5 }}>
             <CartesianGrid strokeDasharray="3 3" stroke="#1A3225" />
             <XAxis dataKey={xKey} tick={{ fill: '#8FA897', fontSize: 11, fontFamily: 'monospace' }} stroke="#224030" />
             <YAxis tick={{ fill: '#8FA897', fontSize: 11, fontFamily: 'monospace' }} stroke="#224030" tickFormatter={(v) => fmtBRL(v).replace('R$ ', '')} width={70} />
             <Tooltip contentStyle={tooltipStyle} labelStyle={{ color: '#A8E063' }} formatter={(v) => fmtBRL(v)} />
-            <Line type="monotone" dataKey="captacao" stroke="#A8E063" strokeWidth={2} dot={{ r: 3, fill: '#A8E063' }} activeDot={{ r: 5 }} connectNulls />
+            <Legend wrapperStyle={{ fontSize: 11, fontFamily: 'monospace' }} />
+            <Line type="monotone" dataKey="captacao" name="Captação" stroke="#A8E063" strokeWidth={2} dot={{ r: 3, fill: '#A8E063' }} activeDot={{ r: 5 }} connectNulls />
+            <Line type="monotone" dataKey="patrimonio" name="Patrimônio líquido" stroke="#6C9EFF" strokeWidth={2} dot={{ r: 3, fill: '#6C9EFF' }} activeDot={{ r: 5 }} connectNulls />
           </LineChart>
         </ResponsiveContainer>
       </ChartCard>
 
-      <ChartCard title={`Reuniões — ${selected}`} subtitle="R1, R2 e IP/AP">
+      <ChartCard title={`Reuniões — ${selected}`} subtitle="Agendadas, R1, R2 e IP/AP">
         <ResponsiveContainer>
           <BarChart data={data} margin={{ top: 5, right: 10, left: 0, bottom: 5 }}>
             <CartesianGrid strokeDasharray="3 3" stroke="#1A3225" />
@@ -360,6 +467,7 @@ function ChartsGroup({ data, xKey, selected }) {
             <YAxis tick={{ fill: '#8FA897', fontSize: 11, fontFamily: 'monospace' }} stroke="#224030" allowDecimals={false} width={40} />
             <Tooltip contentStyle={tooltipStyle} labelStyle={{ color: '#A8E063' }} cursor={{ fill: 'rgba(168,224,99,0.06)' }} />
             <Legend wrapperStyle={{ fontSize: 11, fontFamily: 'monospace' }} />
+            <Bar dataKey="reuniao_agendada" name="Agendadas" fill="#5EEAD4" radius={[3, 3, 0, 0]} />
             <Bar dataKey="r1" name="R1" fill="#A8E063" radius={[3, 3, 0, 0]} />
             <Bar dataKey="r2" name="R2" fill="#6C9EFF" radius={[3, 3, 0, 0]} />
             <Bar dataKey="ip_ap" name="IP/AP" fill="#F2C94C" radius={[3, 3, 0, 0]} />

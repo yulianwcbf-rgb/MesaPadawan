@@ -1,0 +1,13 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(npm -v)",
+      "Bash(find / -maxdepth 4 -iname \"node\" -type f 2>/dev/null | grep -v Cellar; find /Users/yulian -maxdepth 3 -iname \"*.nvm*\" -o -iname \"*fnm*\" 2>/dev/null | head -20; cat ~/.zshrc 2>/dev/null | grep -i node; cat ~/.zprofile 2>/dev/null | grep -i node)",
+      "Bash(brew --version)",
+      "Bash(mkdir -p ~/.local/node)",
+      "Bash(curl -fsSL -o node.tar.gz https://nodejs.org/dist/v22.14.0/node-v22.14.0-darwin-arm64.tar.gz)",
+      "Bash(tar -xzf node.tar.gz --strip-components=1)",
+      "Bash(rm node.tar.gz)"
+    ]
+  }
+}

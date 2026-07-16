@@ -9,6 +9,8 @@ create table if not exists public.team_members (
   id uuid primary key default gen_random_uuid(),
   name text not null,
   photo_url text,
+  tempo_mesa_meses numeric default 0,
+  archived boolean default false,
   created_date timestamptz not null default now(),
   updated_date timestamptz not null default now()
 );
@@ -45,6 +47,14 @@ create table if not exists public.weekly_entries (
 alter table public.weekly_entries add column if not exists pipe_proxima_semana numeric default 0;
 alter table public.weekly_entries add column if not exists pipe_ip numeric default 0;
 alter table public.weekly_entries add column if not exists pipe_ap numeric default 0;
+
+-- Migration (safe to re-run): add tempo de mesa to an existing team_members.
+alter table public.team_members add column if not exists tempo_mesa_meses numeric default 0;
+
+-- Migration (safe to re-run): add archived flag to an existing team_members.
+-- Removing an assessor archives the row instead of deleting it, so their
+-- photo, tempo de mesa and weekly entries are preserved.
+alter table public.team_members add column if not exists archived boolean default false;
 
 -- Enable Row Level Security
 alter table public.team_members enable row level security;
