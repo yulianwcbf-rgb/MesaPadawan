@@ -234,6 +234,11 @@ export default function AnaliseTab({ refreshKey }) {
           <p className="font-mono text-sm text-[#A8E063]">
             Patrimônio líquido: <span className="font-semibold">{fmtBRL(totals.patrimonio)}</span>
           </p>
+          <p className="font-mono text-sm text-[#8FA897]">
+            Tempo de mesa: <span className="font-semibold text-[#F3F6F1]">
+              {selectedMember?.tempo_mesa_meses ? `${selectedMember.tempo_mesa_meses} ${selectedMember.tempo_mesa_meses === 1 ? 'mês' : 'meses'}` : '—'}
+            </span>
+          </p>
           <div className="flex gap-2 flex-wrap mt-1">
             {team.map(m => (
               <button
