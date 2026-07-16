@@ -40,6 +40,8 @@ const normalize = (s) =>
 
 const labelMap = {};
 FIELDS.forEach(f => { labelMap[normalize(f.label)] = f.key; labelMap[normalize(f.key)] = f.key; });
+// Common header aliases seen in hand-edited or exported spreadsheets.
+labelMap[normalize('Semana')] = 'week_start';
 
 function toISODate(val) {
   if (!val) return '';
