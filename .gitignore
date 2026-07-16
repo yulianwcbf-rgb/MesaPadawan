@@ -1,6 +1,10 @@
 #env
+# .env.production and .env.example are intentionally committed (public,
+# RLS-protected Supabase values / a template with no secrets). Only ignore
+# personal, uncommitted local overrides.
 .env
-.env.*
+.env.local
+.env.*.local
 
 # Logs
 /logs
@@ -27,5 +31,4 @@ dist-ssr
 *.sln
 *.sw?
 
-.env
 .vite
