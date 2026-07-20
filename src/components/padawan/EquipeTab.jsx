@@ -1,6 +1,6 @@
 import { db } from '@/api/base44Client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 
 import { useToast } from '@/components/ui/use-toast';
 import MemberAvatar from '@/components/padawan/MemberAvatar';
@@ -10,6 +10,8 @@ export default function EquipeTab() {
   const [allTeam, setAllTeam] = useState([]); // includes archived, used to detect re-adds
   const [loading, setLoading] = useState(true);
   const [newName, setNewName] = useState('');
+  const [tempoDrafts, setTempoDrafts] = useState({}); // memberId -> in-progress input text
+  const tempoTimers = useRef({}); // memberId -> debounce timeout id
   const { toast } = useToast();
 
   const load = async () => {
@@ -37,10 +39,24 @@ export default function EquipeTab() {
     load();
   };
 
-  const handleTempoMesa = async (member, value) => {
-    const meses = Math.max(0, parseInt(value, 10) || 0);
-    await db.entities.TeamMember.update(member.id, { tempo_mesa_meses: meses });
-    setTeam(prev => prev.map(m => m.id === member.id ? { ...m, tempo_mesa_meses: meses } : m));
+  // Keep the input's displayed value driven purely by local typing (via
+  // tempoDrafts) and only persist after a pause. Without this, two quick
+  // keystrokes fire two overlapping network updates (Supabase), and if the
+  // response for the earlier one resolves after the later one, the field
+  // snaps back to a stale value mid-typing.
+  const handleTempoMesaChange = (member, value) => {
+    setTempoDrafts(prev => ({ ...prev, [member.id]: value }));
+    clearTimeout(tempoTimers.current[member.id]);
+    tempoTimers.current[member.id] = setTimeout(async () => {
+      const meses = Math.max(0, parseInt(value, 10) || 0);
+      await db.entities.TeamMember.update(member.id, { tempo_mesa_meses: meses });
+      setTeam(prev => prev.map(m => m.id === member.id ? { ...m, tempo_mesa_meses: meses } : m));
+      setTempoDrafts(prev => {
+        const next = { ...prev };
+        delete next[member.id];
+        return next;
+      });
+    }, 500);
   };
 
   const handlePhoto = async (member, file) => {
@@ -96,8 +112,8 @@ export default function EquipeTab() {
                   <input
                     type="number"
                     min="0"
-                    value={m.tempo_mesa_meses || ''}
-                    onChange={e => handleTempoMesa(m, e.target.value)}
+                    value={tempoDrafts[m.id] !== undefined ? tempoDrafts[m.id] : (m.tempo_mesa_meses || '')}
+                    onChange={e => handleTempoMesaChange(m, e.target.value)}
                     placeholder="0"
                     className="w-14 bg-[#163524] border border-[#224030] text-[#F3F6F1] rounded px-1.5 py-1 font-mono text-xs outline-none focus:border-[#A8E063] transition-colors"
                   />
