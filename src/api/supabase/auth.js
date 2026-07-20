@@ -98,7 +98,11 @@ export const auth = {
 
   // Sends a password-reset email. The link returns to the app's reset page.
   async resetPasswordRequest(email) {
-    const redirectTo = `${window.location.origin}${window.location.pathname}#/reset-password`;
+    // No "#/reset-password" here: Supabase appends its own recovery tokens as
+    // a URL hash (#access_token=...&type=recovery), which would collide with
+    // this app's HashRouter-based routing. App.jsx detects `type=recovery` in
+    // the raw hash on load and navigates to /reset-password itself.
+    const redirectTo = `${window.location.origin}${window.location.pathname}`;
     const { error } = await supabase.auth.resetPasswordForEmail(email, { redirectTo });
     // Return no local token: the UI then shows the "check your email" message.
     return { token: null, emailed: !error };
