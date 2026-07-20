@@ -1,9 +1,11 @@
 import { Toaster } from "@/components/ui/toaster"
 import { QueryClientProvider } from '@tanstack/react-query'
 import { queryClientInstance } from '@/lib/query-client'
+import { useEffect } from 'react';
 // HashRouter is used so the app works on GitHub Pages (static hosting) at any
 // path, with no server-side rewrite rules and no 404 on deep links/refresh.
-import { HashRouter as Router, Route, Routes, Navigate } from 'react-router-dom';
+import { HashRouter as Router, Route, Routes, Navigate, useNavigate } from 'react-router-dom';
+import { supabase } from '@/api/supabase/client';
 import PageNotFound from './lib/PageNotFound';
 import { AuthProvider, useAuth } from '@/lib/AuthContext';
 import ScrollToTop from './components/ScrollToTop';
@@ -35,6 +37,27 @@ function PublicOnly({ children }) {
   return children;
 }
 
+// Supabase's password-recovery redirect appends its own tokens as a URL hash
+// (#access_token=...&type=recovery), which collides with HashRouter's own use
+// of the hash for routing and doesn't match any route. Catch it two ways:
+// a same-tick check of the raw hash (fast path), and Supabase's own
+// PASSWORD_RECOVERY auth event (reliable even if the hash gets cleaned up by
+// Supabase's client before/after this check runs).
+function RecoveryRedirect() {
+  const navigate = useNavigate();
+  useEffect(() => {
+    if (window.location.hash.includes('type=recovery')) {
+      navigate('/reset-password', { replace: true });
+    }
+    if (!supabase) return;
+    const { data: sub } = supabase.auth.onAuthStateChange((event) => {
+      if (event === 'PASSWORD_RECOVERY') navigate('/reset-password', { replace: true });
+    });
+    return () => sub.subscription.unsubscribe();
+  }, []);
+  return null;
+}
+
 const AppRoutes = () => (
   <Routes>
     <Route path="/login" element={<PublicOnly><Login /></PublicOnly>} />
@@ -52,6 +75,7 @@ function App() {
       <QueryClientProvider client={queryClientInstance}>
         <Router>
           <ScrollToTop />
+          <RecoveryRedirect />
           <AppRoutes />
         </Router>
         <Toaster />

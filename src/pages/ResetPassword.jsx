@@ -1,4 +1,4 @@
-import { db } from '@/api/base44Client';
+import { db, backendMode } from '@/api/base44Client';
 
 import React, { useState } from "react";
 import { Link, useSearchParams, useNavigate } from "react-router-dom";
@@ -37,7 +37,10 @@ export default function ResetPassword() {
     }
   };
 
-  if (!resetToken) {
+  // The local backend issues its own token, passed as ?token=... in the
+  // reset link. Supabase instead establishes a recovery session automatically
+  // from the URL's hash fragment, so there's no query-param token to check.
+  if (backendMode === 'local' && !resetToken) {
     return (
       <AuthLayout
         icon={AlertTriangle}
