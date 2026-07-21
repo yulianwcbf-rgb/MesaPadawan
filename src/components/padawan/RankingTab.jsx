@@ -20,7 +20,7 @@ export default function RankingTab() {
   const [mode, setMode] = useState('geral');
   const [selectedMonth, setSelectedMonth] = useState('');
   const [selectedWeek, setSelectedWeek] = useState('');
-  const [goalAssessor, setGoalAssessor] = useState('');
+  const [expandedAssessor, setExpandedAssessor] = useState(null);
 
   useEffect(() => {
     async function load() {
@@ -31,7 +31,6 @@ export default function RankingTab() {
       setEntries(e);
       const active = t.filter(m => !m.archived);
       setTeam(active);
-      if (active.length > 0) setGoalAssessor(a => a || active[0].name);
       setLoading(false);
       // Goals are an optional add-on: don't let a missing/not-yet-migrated
       // monthly_goals table block the rest of the ranking from loading.
@@ -95,11 +94,10 @@ export default function RankingTab() {
 
   const noTeam = team.length === 0 && entries.length === 0;
 
-  // Monthly goal progress for the selected assessor: each metric is an
+  // Monthly goal progress for a given assessor: each metric is an
   // accumulation of that assessor's entries in the selected month.
-  const goalProgress = (() => {
-    if (mode !== 'mensal' || !goalAssessor) return null;
-    const mine = entries.filter(e => e.assessor === goalAssessor && (e.week_start || '').slice(0, 7) === selectedMonth);
+  const goalProgressFor = (name) => {
+    const mine = entries.filter(e => e.assessor === name && (e.week_start || '').slice(0, 7) === selectedMonth);
     const sum = (field) => mine.reduce((s, e) => s + (e[field] || 0), 0);
     return {
       nnm: sum('captacao'),
@@ -108,7 +106,7 @@ export default function RankingTab() {
       recomendacoes: sum('recomendacoes'),
       reunioes: mine.reduce((s, e) => s + (e.r1 || 0) + (e.r2 || 0) + (e.reuniao_ip || 0) + (e.reuniao_ap || 0), 0),
     };
-  })();
+  };
 
   return (
     <div className="rounded-xl border border-[#224030] bg-[#102A1E] p-5 md:p-6">
@@ -153,28 +151,6 @@ export default function RankingTab() {
         )}
       </div>
 
-      {mode === 'mensal' && !noTeam && months.length > 0 && (
-        <div className="rounded-xl border border-[#224030] bg-[#0D2418] p-4 md:p-5 mb-5">
-          <div className="flex items-center justify-between gap-3 flex-wrap mb-4">
-            <h3 className="font-heading text-sm font-semibold text-[#F3F6F1]">Metas do mês</h3>
-            <select
-              value={goalAssessor}
-              onChange={e => setGoalAssessor(e.target.value)}
-              className="field-input max-w-[200px]"
-            >
-              {team.map(m => <option key={m.id} value={m.name}>{m.name}</option>)}
-            </select>
-          </div>
-          <div className="flex flex-col gap-3">
-            <GoalBar label="NNM" current={goalProgress?.nnm || 0} target={goal?.goal_nnm || 0} formatter={fmtBRL} />
-            <GoalBar label="AP" current={goalProgress?.ap || 0} target={goal?.goal_ap || 0} formatter={fmtBRL} />
-            <GoalBar label="IP" current={goalProgress?.ip || 0} target={goal?.goal_ip || 0} formatter={fmtBRL} />
-            <GoalBar label="Recomendações" current={goalProgress?.recomendacoes || 0} target={goal?.goal_recomendacoes || 0} formatter={String} />
-            <GoalBar label="Reuniões totais" current={goalProgress?.reunioes || 0} target={goal?.goal_reunioes || 0} formatter={String} />
-          </div>
-        </div>
-      )}
-
       {noTeam ? (
         <div className="p-8 text-center text-sm text-[#8FA897]">
           Nenhum assessor cadastrado ainda. Vá em <span className="text-[#F3F6F1] font-semibold">Equipe</span> para adicionar.
@@ -189,38 +165,56 @@ export default function RankingTab() {
             const pct = Math.max(3, Math.min(100, (Math.abs(pts) / max) * 100));
             const isFirst = i === 0 && pts > 0;
             const isNeg = pts < 0;
+            const expanded = mode === 'mensal' && expandedAssessor === name;
+            const progress = expanded ? goalProgressFor(name) : null;
             return (
-              <div
-                key={name}
-                className="grid items-center gap-3 py-3 border-b border-[#1A3225] last:border-b-0"
-                style={{ gridTemplateColumns: '36px 150px 1fr 90px' }}
-              >
-                <span className={`font-mono text-sm ${isFirst ? 'text-[#A8E063]' : 'text-[#5C7466]'}`}>
-                  {String(i + 1).padStart(2, '0')}
-                </span>
-                <div className="flex items-center gap-2.5 min-w-0">
-                  <MemberAvatar member={photoMap[name]} size={32} />
-                  <span className={`text-sm font-semibold truncate ${isFirst ? 'text-[#A8E063]' : 'text-[#F3F6F1]'}`}>
-                    {name}
+              <React.Fragment key={name}>
+                <div
+                  className="grid items-center gap-3 py-3 border-b border-[#1A3225] last:border-b-0"
+                  style={{ gridTemplateColumns: '36px 150px 1fr 90px' }}
+                >
+                  <span className={`font-mono text-sm ${isFirst ? 'text-[#A8E063]' : 'text-[#5C7466]'}`}>
+                    {String(i + 1).padStart(2, '0')}
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => mode === 'mensal' && setExpandedAssessor(a => a === name ? null : name)}
+                    className={`flex items-center gap-2.5 min-w-0 text-left ${mode === 'mensal' ? 'cursor-pointer' : 'cursor-default'}`}
+                  >
+                    <MemberAvatar member={photoMap[name]} size={32} />
+                    <span className={`text-sm font-semibold truncate ${isFirst ? 'text-[#A8E063]' : 'text-[#F3F6F1]'}`}>
+                      {name}
+                    </span>
+                  </button>
+                  <div className="h-2.5 bg-[#1A3225] rounded-sm overflow-hidden">
+                    <motion.div
+                      initial={{ width: 0 }}
+                      animate={{ width: `${pct}%` }}
+                      transition={{ duration: 0.7, ease: [0.2, 0.8, 0.2, 1] }}
+                      className="h-full rounded-sm"
+                      style={{
+                        background: isNeg
+                          ? 'linear-gradient(90deg, #7a3a2e, #F2705C)'
+                          : 'linear-gradient(90deg, #4d7a2e, #A8E063)',
+                      }}
+                    />
+                  </div>
+                  <span className={`font-mono text-sm font-semibold text-right ${isNeg ? 'text-[#F2705C]' : 'text-[#F3F6F1]'}`}>
+                    {fmtPts(pts)}
                   </span>
                 </div>
-                <div className="h-2.5 bg-[#1A3225] rounded-sm overflow-hidden">
-                  <motion.div
-                    initial={{ width: 0 }}
-                    animate={{ width: `${pct}%` }}
-                    transition={{ duration: 0.7, ease: [0.2, 0.8, 0.2, 1] }}
-                    className="h-full rounded-sm"
-                    style={{
-                      background: isNeg
-                        ? 'linear-gradient(90deg, #7a3a2e, #F2705C)'
-                        : 'linear-gradient(90deg, #4d7a2e, #A8E063)',
-                    }}
-                  />
-                </div>
-                <span className={`font-mono text-sm font-semibold text-right ${isNeg ? 'text-[#F2705C]' : 'text-[#F3F6F1]'}`}>
-                  {fmtPts(pts)}
-                </span>
-              </div>
+                {expanded && (
+                  <div className="pb-4 pt-1 border-b border-[#1A3225] last:border-b-0">
+                    <div className="flex flex-col gap-3 pl-[48px]">
+                      <GoalBar label="NNM" current={progress.nnm} target={goal?.goal_nnm || 0} formatter={fmtBRL} />
+                      <GoalBar label="AP" current={progress.ap} target={goal?.goal_ap || 0} formatter={fmtBRL} />
+                      <GoalBar label="IP" current={progress.ip} target={goal?.goal_ip || 0} formatter={fmtBRL} />
+                      <GoalBar label="Recomendações" current={progress.recomendacoes} target={goal?.goal_recomendacoes || 0} formatter={String} />
+                      <GoalBar label="Reuniões totais" current={progress.reunioes} target={goal?.goal_reunioes || 0} formatter={String} />
+                    </div>
+                  </div>
+                )}
+              </React.Fragment>
             );
           })}
         </div>
@@ -231,7 +225,7 @@ export default function RankingTab() {
 
 // Horizontal gauge: current progress toward a monthly target.
 function GoalBar({ label, current, target, formatter }) {
-  const pct = target > 0 ? Math.min(100, (current / target) * 100) : 0;
+  const pct = target > 0 ? Math.max(0, Math.min(100, (current / target) * 100)) : 0;
   return (
     <div className="flex items-center gap-3">
       <span className="w-32 flex-shrink-0 text-xs text-[#8FA897] font-mono">{label}</span>

@@ -101,7 +101,7 @@ function GoalsForm({ goal, onSaved }) {
   const [saving, setSaving] = useState(false);
   const { toast } = useToast();
 
-  const setNum = (field, val) => setForm(f => ({ ...f, [field]: parseFloat(val) || 0 }));
+  const setNum = (field, val) => setForm(f => ({ ...f, [field]: Math.max(0, parseFloat(val) || 0) }));
 
   const handleSave = async () => {
     setSaving(true);
