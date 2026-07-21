@@ -10,6 +10,7 @@ import { supabase } from './client';
 const TABLES = {
   TeamMember: 'team_members',
   WeeklyEntry: 'weekly_entries',
+  Goal: 'monthly_goals',
 };
 
 function tableFor(name) {

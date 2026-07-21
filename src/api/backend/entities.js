@@ -44,6 +44,15 @@ const SCHEMAS = {
   User: {
     defaults: { role: 'user' },
   },
+  Goal: {
+    defaults: {
+      goal_nnm: 0,
+      goal_ap: 0,
+      goal_ip: 0,
+      goal_recomendacoes: 0,
+      goal_reunioes: 0,
+    },
+  },
 };
 
 function collectionKey(name) {

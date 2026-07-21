@@ -2,7 +2,7 @@ import { db } from '@/api/base44Client';
 
 import React, { useState, useEffect, useMemo } from 'react';
 
-import { fmtPts, fmtMonthBR, fmtDateBR } from '@/lib/scoring';
+import { fmtPts, fmtBRL, fmtMonthBR, fmtDateBR } from '@/lib/scoring';
 import MemberAvatar from '@/components/padawan/MemberAvatar';
 import { motion } from 'framer-motion';
 
@@ -15,19 +15,25 @@ const RANK_TABS = [
 export default function RankingTab() {
   const [entries, setEntries] = useState([]);
   const [team, setTeam] = useState([]);
+  const [goal, setGoal] = useState(null);
   const [loading, setLoading] = useState(true);
   const [mode, setMode] = useState('geral');
   const [selectedMonth, setSelectedMonth] = useState('');
   const [selectedWeek, setSelectedWeek] = useState('');
+  const [goalAssessor, setGoalAssessor] = useState('');
 
   useEffect(() => {
     async function load() {
-      const [e, t] = await Promise.all([
+      const [e, t, g] = await Promise.all([
         db.entities.WeeklyEntry.list(),
-        db.entities.TeamMember.list()
+        db.entities.TeamMember.list(),
+        db.entities.Goal.list(),
       ]);
       setEntries(e);
-      setTeam(t.filter(m => !m.archived));
+      const active = t.filter(m => !m.archived);
+      setTeam(active);
+      setGoal(g[0] || null);
+      if (active.length > 0) setGoalAssessor(a => a || active[0].name);
       setLoading(false);
     }
     load();
@@ -83,6 +89,21 @@ export default function RankingTab() {
 
   const noTeam = team.length === 0 && entries.length === 0;
 
+  // Monthly goal progress for the selected assessor: each metric is an
+  // accumulation of that assessor's entries in the selected month.
+  const goalProgress = (() => {
+    if (mode !== 'mensal' || !goalAssessor) return null;
+    const mine = entries.filter(e => e.assessor === goalAssessor && (e.week_start || '').slice(0, 7) === selectedMonth);
+    const sum = (field) => mine.reduce((s, e) => s + (e[field] || 0), 0);
+    return {
+      nnm: sum('captacao'),
+      ap: sum('consorcio'),
+      ip: sum('pa'),
+      recomendacoes: sum('recomendacoes'),
+      reunioes: mine.reduce((s, e) => s + (e.r1 || 0) + (e.r2 || 0) + (e.reuniao_ip || 0) + (e.reuniao_ap || 0), 0),
+    };
+  })();
+
   return (
     <div className="rounded-xl border border-[#224030] bg-[#102A1E] p-5 md:p-6">
       {/* Sub-tabs: Geral / Mensal / Semanal */}
@@ -125,6 +146,28 @@ export default function RankingTab() {
           </select>
         )}
       </div>
+
+      {mode === 'mensal' && !noTeam && months.length > 0 && (
+        <div className="rounded-xl border border-[#224030] bg-[#0D2418] p-4 md:p-5 mb-5">
+          <div className="flex items-center justify-between gap-3 flex-wrap mb-4">
+            <h3 className="font-heading text-sm font-semibold text-[#F3F6F1]">Metas do mês</h3>
+            <select
+              value={goalAssessor}
+              onChange={e => setGoalAssessor(e.target.value)}
+              className="field-input max-w-[200px]"
+            >
+              {team.map(m => <option key={m.id} value={m.name}>{m.name}</option>)}
+            </select>
+          </div>
+          <div className="flex flex-col gap-3">
+            <GoalBar label="NNM" current={goalProgress?.nnm || 0} target={goal?.goal_nnm || 0} formatter={fmtBRL} />
+            <GoalBar label="AP" current={goalProgress?.ap || 0} target={goal?.goal_ap || 0} formatter={fmtBRL} />
+            <GoalBar label="IP" current={goalProgress?.ip || 0} target={goal?.goal_ip || 0} formatter={fmtBRL} />
+            <GoalBar label="Recomendações" current={goalProgress?.recomendacoes || 0} target={goal?.goal_recomendacoes || 0} formatter={String} />
+            <GoalBar label="Reuniões totais" current={goalProgress?.reunioes || 0} target={goal?.goal_reunioes || 0} formatter={String} />
+          </div>
+        </div>
+      )}
 
       {noTeam ? (
         <div className="p-8 text-center text-sm text-[#8FA897]">
@@ -176,6 +219,27 @@ export default function RankingTab() {
           })}
         </div>
       )}
+    </div>
+  );
+}
+
+// Horizontal gauge: current progress toward a monthly target.
+function GoalBar({ label, current, target, formatter }) {
+  const pct = target > 0 ? Math.min(100, (current / target) * 100) : 0;
+  return (
+    <div className="flex items-center gap-3">
+      <span className="w-32 flex-shrink-0 text-xs text-[#8FA897] font-mono">{label}</span>
+      <div className="flex-1 h-2 bg-[#1A3225] rounded-full overflow-hidden">
+        <motion.div
+          initial={{ width: 0 }}
+          animate={{ width: `${pct}%` }}
+          transition={{ duration: 0.7, ease: [0.2, 0.8, 0.2, 1] }}
+          className="h-full rounded-full bg-[#A8E063]"
+        />
+      </div>
+      <span className="w-36 flex-shrink-0 text-right text-xs font-mono text-[#F3F6F1] whitespace-nowrap">
+        {target > 0 ? `${formatter(current)} / ${formatter(target)}` : `${formatter(current)} · sem meta`}
+      </span>
     </div>
   );
 }

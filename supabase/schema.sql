@@ -56,9 +56,27 @@ alter table public.team_members add column if not exists tempo_mesa_meses numeri
 -- photo, tempo de mesa and weekly entries are preserved.
 alter table public.team_members add column if not exists archived boolean default false;
 
+-- Monthly goals (per-person targets everyone tracks progress against).
+-- Single shared row: the app always reads/updates the first record.
+create table if not exists public.monthly_goals (
+  id uuid primary key default gen_random_uuid(),
+  goal_nnm numeric default 0,
+  goal_ap numeric default 0,
+  goal_ip numeric default 0,
+  goal_recomendacoes numeric default 0,
+  goal_reunioes numeric default 0,
+  created_date timestamptz not null default now(),
+  updated_date timestamptz not null default now()
+);
+
 -- Enable Row Level Security
 alter table public.team_members enable row level security;
 alter table public.weekly_entries enable row level security;
+alter table public.monthly_goals enable row level security;
+
+drop policy if exists "monthly_goals access" on public.monthly_goals;
+create policy "monthly_goals access" on public.monthly_goals
+  for all to authenticated using (true) with check (true);
 
 -- Any authenticated (logged-in) user can read and write the shared data.
 drop policy if exists "team_members access" on public.team_members;
