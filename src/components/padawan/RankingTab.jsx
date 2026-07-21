@@ -24,17 +24,23 @@ export default function RankingTab() {
 
   useEffect(() => {
     async function load() {
-      const [e, t, g] = await Promise.all([
+      const [e, t] = await Promise.all([
         db.entities.WeeklyEntry.list(),
         db.entities.TeamMember.list(),
-        db.entities.Goal.list(),
       ]);
       setEntries(e);
       const active = t.filter(m => !m.archived);
       setTeam(active);
-      setGoal(g[0] || null);
       if (active.length > 0) setGoalAssessor(a => a || active[0].name);
       setLoading(false);
+      // Goals are an optional add-on: don't let a missing/not-yet-migrated
+      // monthly_goals table block the rest of the ranking from loading.
+      try {
+        const g = await db.entities.Goal.list();
+        setGoal(g[0] || null);
+      } catch {
+        setGoal(null);
+      }
     }
     load();
   }, []);

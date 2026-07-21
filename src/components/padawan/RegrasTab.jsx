@@ -38,8 +38,12 @@ function MetasBlock() {
   const [editing, setEditing] = useState(false);
 
   const load = async () => {
-    const rows = await db.entities.Goal.list();
-    setGoal(rows[0] || null);
+    try {
+      const rows = await db.entities.Goal.list();
+      setGoal(rows[0] || null);
+    } catch {
+      setGoal(null);
+    }
     setLoading(false);
   };
 
@@ -101,11 +105,15 @@ function GoalsForm({ goal, onSaved }) {
 
   const handleSave = async () => {
     setSaving(true);
-    if (goal) await db.entities.Goal.update(goal.id, form);
-    else await db.entities.Goal.create(form);
+    try {
+      if (goal) await db.entities.Goal.update(goal.id, form);
+      else await db.entities.Goal.create(form);
+      toast({ title: 'Metas mensais atualizadas.' });
+      onSaved?.();
+    } catch (err) {
+      toast({ title: 'Erro ao salvar metas.', description: String(err?.message || err), variant: 'destructive' });
+    }
     setSaving(false);
-    toast({ title: 'Metas mensais atualizadas.' });
-    onSaved?.();
   };
 
   return (
