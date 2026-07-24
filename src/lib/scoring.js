@@ -1,8 +1,9 @@
 export const RULES = {
   captacaoPor200k: 10,
+  captacaoPor50kExtra: 5,
   pontoPorR1: 1,
-  r1BonusThreshold: 15,
-  r1BonusMultiplier: 1.8,
+  reunioesBonusThreshold: 15,
+  reunioesBonusMultiplier: 1.8,
   pontoPorReuniaoIP: 3,
   pontoPorR2: 2,
   pontoPor100kConsorcio: 2,
@@ -25,20 +26,33 @@ export function calcPoints(input) {
     if (pts !== 0) { b.push({ label, pts }); total += pts; }
   };
 
-  const blocos200k = Math.floor((input.captacao || 0) / 200000);
-  add(`Captação — ${blocos200k}× R$ 200k`, blocos200k * RULES.captacaoPor200k);
-
-  let r1Pts = (input.r1 || 0) * RULES.pontoPorR1;
-  let r1Label = `R1 — ${input.r1 || 0} reunião(ões)`;
-  if ((input.r1 || 0) > RULES.r1BonusThreshold) {
-    r1Pts = r1Pts * RULES.r1BonusMultiplier;
-    r1Label += ` (bônus ×${RULES.r1BonusMultiplier})`;
+  const captacao = input.captacao || 0;
+  if (captacao >= 200000) {
+    const blocosExtra = Math.floor((captacao - 200000) / 50000);
+    add(
+      `Captação — R$ 200k${blocosExtra > 0 ? ` + ${blocosExtra}× R$ 50k extra` : ''}`,
+      RULES.captacaoPor200k + blocosExtra * RULES.captacaoPor50kExtra
+    );
   }
-  add(r1Label, r1Pts);
 
-  add(`Reuniões IP — ${input.reuniao_ip || 0}`, (input.reuniao_ip || 0) * RULES.pontoPorReuniaoIP);
-  add(`Reuniões AP — ${input.reuniao_ap || 0}`, (input.reuniao_ap || 0) * RULES.pontoPorReuniaoIP);
-  add(`R2 — ${input.r2 || 0} reunião(ões)`, (input.r2 || 0) * RULES.pontoPorR2);
+  const r1Base = (input.r1 || 0) * RULES.pontoPorR1;
+  const r2Base = (input.r2 || 0) * RULES.pontoPorR2;
+  const ipBase = (input.reuniao_ip || 0) * RULES.pontoPorReuniaoIP;
+  const apBase = (input.reuniao_ap || 0) * RULES.pontoPorReuniaoIP;
+
+  add(`R1 — ${input.r1 || 0} reunião(ões)`, r1Base);
+  add(`R2 — ${input.r2 || 0} reunião(ões)`, r2Base);
+  add(`Reuniões IP — ${input.reuniao_ip || 0}`, ipBase);
+  add(`Reuniões AP — ${input.reuniao_ap || 0}`, apBase);
+
+  const totalReunioes = (input.r1 || 0) + (input.r2 || 0) + (input.reuniao_ip || 0) + (input.reuniao_ap || 0);
+  if (totalReunioes >= RULES.reunioesBonusThreshold) {
+    const combinedBase = r1Base + r2Base + ipBase + apBase;
+    add(
+      `Bônus — ${totalReunioes} reuniões totais (×${RULES.reunioesBonusMultiplier})`,
+      combinedBase * (RULES.reunioesBonusMultiplier - 1)
+    );
+  }
 
   const blocosConsorcio = Math.floor((input.consorcio || 0) / 100000);
   add(`Consórcio — ${blocosConsorcio}× R$ 100k`, blocosConsorcio * RULES.pontoPor100kConsorcio);
@@ -63,7 +77,6 @@ export function calcPoints(input) {
   if ((input.recomendacoes || 0) <= RULES.recomendacoesMinimas) {
     add(`Penalidade — recomendações ≤ ${RULES.recomendacoesMinimas}`, RULES.penalidadeRecomendacoesBaixas);
   }
-  const totalReunioes = (input.r1 || 0) + (input.r2 || 0) + (input.reuniao_ip || 0) + (input.reuniao_ap || 0);
   if (totalReunioes <= RULES.reunioesMinimas) {
     add(`Penalidade — reuniões ≤ ${RULES.reunioesMinimas}`, RULES.penalidadeReunioesBaixas);
   }

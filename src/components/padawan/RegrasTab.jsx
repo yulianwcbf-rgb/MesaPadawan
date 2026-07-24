@@ -155,9 +155,10 @@ export default function RegrasTab() {
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           <RuleBlock title="Captação">
-            <RuleLine label="A cada R$ 200k captados" value="+10 pts" />
+            <RuleLine label="R$ 200k captados" value="+10 pts" />
+            <RuleLine label="A cada R$ 50k captados acima de 200k" value="+5 pts" />
             <RuleLine label="Cada R1" value="+1 pt" />
-            <RuleLine label="Mais de 15 R1 na semana" value="×1,8" />
+            <RuleLine label="15 reuniões totais na semana" value="×1,8" />
             <RuleLine label="Cada R2" value="+2 pts" />
             <RuleLine label="Cada reunião com IP/AP" value="+3 pts" />
             <RuleLine label="A cada R$ 100k de consórcio" value="+2 pts" />
